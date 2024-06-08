@@ -1,10 +1,14 @@
 #include <NTPClient.h>
 #include "DHTesp.h"
 #include <WiFiUdp.h>
+#include <DNSServer.h>
+#include <ESP8266WebServer.h>
+#include <WiFiManager.h>
 #include <Arduino.h>
 #include <ESP8266WiFi.h>
 #include <FirebaseClient.h>
 #include <WiFiClientSecure.h>
+
 #include <secrets.h>
 
 // This project needs a file called secrets.h where all the private stuff goes
@@ -41,20 +45,25 @@ float temperature;
 unsigned long previousMillis = 0;
 unsigned long documentPreviousMillis = 0;
 const unsigned int documentCreationInterval = 3000;
+String deviceName;
 
 void setup()
 {
 
   Serial.begin(115200);
-  WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
 
-  Serial.print("Connecting to Wi-Fi");
-  while (WiFi.status() != WL_CONNECTED)
+  WiFiManager wifiManager;
+
+  WiFiManagerParameter customName("name", "Device name (max 20 chars)", "nombre", 20);
+  wifiManager.addParameter(&customName);
+  const int button = D1;
+
+  if (digitalRead(button))
   {
-    Serial.print(".");
-    delay(300);
+    wifiManager.startConfigPortal("AP de temp y hum.");
   }
-  Serial.println();
+  deviceName = String(customName.getValue());
+
   Serial.print("Connected with IP: ");
   Serial.println(WiFi.localIP());
   Serial.println();
@@ -111,9 +120,11 @@ void loop()
     // double
     Values::DoubleValue temperatureValue(temperature);
     Values::DoubleValue humidityValue(humidity);
+    Values::StringValue nameValue(deviceName);
 
     Document<Values::Value> doc("temperatura", Values::Value(temperatureValue));
     doc.add("humedad", Values::Value(humidityValue));
+    doc.add("nombre", Values::Value(nameValue));
 
     Serial.println("Create document... ");
 
